@@ -576,12 +576,11 @@ int main(int argc, char *argv[]) {
 ***************************************************************/
 
 
+/**************************************************************
+ * Evaluate the address of the next state according to the
+ * micro sequencer logic. Latch the next microinstruction.
+ **************************************************************/
 void eval_micro_sequencer() {
-    
-    /*
-     * Evaluate the address of the next state according to the
-     * micro sequencer logic. Latch the next microinstruction.
-     */
     
     /* Get Current Microinstruction */
     int* curr_inst = CURRENT_LATCHES.MICROINSTRUCTION;
@@ -607,28 +606,24 @@ void eval_micro_sequencer() {
             NEXT_LATCHES.MICROINSTRUCTION[i] = next_inst[i];    // Update all control store bits
         NEXT_LATCHES.STATE_NUMBER = next_state;                 // Update next state number
     }
-    
 }
 
-/* Memory Variables */
-int memory;
-int w_e[2];
-int cycle_count;
 
+/**************************************************************
+ * This function emulates memory and the WE logic.
+ * Keep track of which cycle of MEMEN we are dealing with.
+ * If fourth, we need to latch Ready bit at the end of
+ * cycle to prepare microsequencer for the fifth cycle.
+ **************************************************************/
+int memory, cycle_count, w_e[2];    // Memory Variables
 void cycle_memory() {
-    
-    /*
-     * This function emulates memory and the WE logic.
-     * Keep track of which cycle of MEMEN we are dealing with.
-     * If fourth, we need to latch Ready bit at the end of
-     * cycle to prepare microsequencer for the fifth cycle.
-     */
     
     /* Get Current Microinstruction */
     int* curr_inst = CURRENT_LATCHES.MICROINSTRUCTION;
     
     /* Get Memory Enable */
     if (GetMIO_EN(curr_inst)) {
+        
         int mar = CURRENT_LATCHES.MAR & 0x0001;
         int d_size = GetDATA_SIZE(curr_inst);
         int write = GetR_W(curr_inst);
@@ -645,40 +640,36 @@ void cycle_memory() {
         /* Memory Ready */
         if (CURRENT_LATCHES.READY) {
             if (write) {    /* Write */
-                if(w_e[0]) MEMORY[CURRENT_LATCHES.MAR >> 1][0] = Low16bits(CURRENT_LATCHES.MDR & 0x00FF);
-                if(w_e[1]) MEMORY[CURRENT_LATCHES.MAR >> 1][1] = Low16bits((CURRENT_LATCHES.MDR & 0xFF00) >> 8);
-            }
-            else {          /* Read */
+                if (w_e[0]) { MEMORY[CURRENT_LATCHES.MAR >> 1][0] = Low16bits(CURRENT_LATCHES.MDR & 0x00FF); }
+                if (w_e[1]) { MEMORY[CURRENT_LATCHES.MAR >> 1][1] = Low16bits((CURRENT_LATCHES.MDR & 0xFF00) >> 8); }
+            } else {        /* Read */
                 memory = Low16bits(MEMORY[CURRENT_LATCHES.MAR / 2][0] +
                                    MEMORY[CURRENT_LATCHES.MAR / 2][1] * 256);
             }
             NEXT_LATCHES.READY = 0;
             cycle_count = 0;
         }
-    }
-    else {  /* Reset */
+        
+    } else {    /* Reset */
         cycle_count = 0;
         w_e[0] = 0;
         w_e[1] = 0;
     }
-    
 }
 
 
-/* Bus Variables */
-int pc_out, addr_sum, marmux_out, mdr_out, alu_out, shf_out;
-
+/**************************************************************
+ * Datapath Routine
+ * Emulate operations before driving the bus.
+ * Evaluate the input of tristate drivers
+ *         Gate_MARMUX,
+ *         Gate_PC,
+ *         Gate_ALU,
+ *         Gate_SHF,
+ *         Gate_MDR.
+ **************************************************************/
+int pc_out, addr_sum, marmux_out, mdr_out, alu_out, shf_out;    // Bus variables
 void eval_bus_drivers() {
-    
-    /*
-     * Datapath routine emulating operations before driving the bus.
-     * Evaluate the input of tristate drivers
-     *             Gate_MARMUX,
-     *         Gate_PC,
-     *         Gate_ALU,
-     *         Gate_SHF,
-     *         Gate_MDR.
-     */
     
     /* Get Current Microinstruction */
     int* curr_inst = CURRENT_LATCHES.MICROINSTRUCTION;
@@ -726,8 +717,7 @@ void eval_bus_drivers() {
     if (ir_5 == 0) {    /* SR1 */
         int sr2 = CURRENT_LATCHES.IR & 0x0007;  // Mask SR2
         sr2_mux = CURRENT_LATCHES.REGS[sr2];    // Set mux
-    }
-    else {              /* Offset */
+    } else {            /* Offset */
         int imm5 = CURRENT_LATCHES.IR & 0x001F;                     // Mask Offset
         if (imm5 & 0x0010) { sr2_mux = Low16bits(imm5 | 0xFFE0); }  // Negative
         else { sr2_mux = Low16bits(imm5); }                         // Postiive
@@ -768,21 +758,17 @@ void eval_bus_drivers() {
             if (val & 0x8000) {                                                 // Negative
                 for (int i = 0; i < shift; i++) { val = Low16bits((val >> 1) | 0x8000); }
                 shf_out = Low16bits(val);
-            }
-            else { shf_out = Low16bits(val >> shift); }                         // Positive
+            } else { shf_out = Low16bits(val >> shift); }                       // Positive
         }
-    }
-    else { shf_out = Low16bits(val << shift); }                                 // <<
-    
+    } else { shf_out = Low16bits(val << shift); }                               // <<
 }
 
 
+/**************************************************************
+ * Datapath routine for driving the bus from
+ * one of the 5 possible tristate drivers.
+ **************************************************************/
 void drive_bus() {
-    
-    /*
-     * Datapath routine for driving the bus from one of the 5 possible
-     * tristate drivers.
-     */
     
     /* Get Current Microinstruction */
     int* curr_inst = CURRENT_LATCHES.MICROINSTRUCTION;
@@ -797,16 +783,15 @@ void drive_bus() {
 }
 
 
+/**************************************************************
+ * Datapath routine for computing all functions that need to
+ * latch values in the data path at the end of this cycle.
+ * Some values require sourcing the bus;
+ * Therefore, this routine has to come after drive_bus.
+ **************************************************************/
 void latch_datapath_values() {
     
-    /*
-     * Datapath routine for computing all functions that need to latch
-     * values in the data path at the end of this cycle.  Some values
-     * require sourcing the bus; therefore, this routine has to come
-     * after drive_bus.
-     */
-    
-    /* Get Current Microinstruction  */
+    /* Get Current Microinstruction */
     int* curr_inst = CURRENT_LATCHES.MICROINSTRUCTION;
     
     /* PC */
@@ -871,5 +856,4 @@ void latch_datapath_values() {
             NEXT_LATCHES.N = 0;
         }
     }
-    
 }
