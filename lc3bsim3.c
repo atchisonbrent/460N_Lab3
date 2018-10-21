@@ -585,7 +585,7 @@ void eval_micro_sequencer() {
     /* Get Current Microinstruction */
     int* curr_inst = CURRENT_LATCHES.MICROINSTRUCTION;
     
-    /* Get Instruction Register Decode */
+    /* IRD 1 */
     if (GetIRD(curr_inst)) {
         int next_state = (CURRENT_LATCHES.IR >> 12) & 0x000F;   // Get next state
         int* next_inst = CONTROL_STORE[next_state];             // Update pointer to control store
@@ -593,7 +593,7 @@ void eval_micro_sequencer() {
             NEXT_LATCHES.MICROINSTRUCTION[i] = next_inst[i];    // Update all control store bits
         NEXT_LATCHES.STATE_NUMBER = next_state;                 // Update next state number
     }
-    else {  /* Not IRD */
+    else {  /* IRD 0 */
         int j_bits = Low16bits(GetJ(curr_inst));
         CURRENT_LATCHES.STATE_NUMBER = j_bits;                  // Update state number
         int cond = Low16bits(GetCOND(curr_inst));
