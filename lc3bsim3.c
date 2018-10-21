@@ -738,11 +738,11 @@ void eval_bus_drivers() {
     
     /* ALU */
     int sr1 = Low16bits((CURRENT_LATCHES.IR & 0x01C0) >> 6);
-    int x = CURRENT_LATCHES.REGS[sr1];
-    int y = sr2_mux;
-    if (GetALUK(curr_inst) == 0) { alu_out = Low16bits(x + y); }        // ADD
-    else if (GetALUK(curr_inst) == 1) { alu_out = Low16bits(x & y); }   // AND
-    else if (GetALUK(curr_inst) == 2) { alu_out = Low16bits(x ^ y); }   // XOR
+    int a = CURRENT_LATCHES.REGS[sr1];
+    int b = sr2_mux;
+    if (GetALUK(curr_inst) == 0) { alu_out = Low16bits(a + b); }        // ADD
+    else if (GetALUK(curr_inst) == 1) { alu_out = Low16bits(a & b); }   // AND
+    else if (GetALUK(curr_inst) == 2) { alu_out = Low16bits(a ^ b); }   // XOR
     else {                                                              // SR1
         if (!(GetSR1MUX(curr_inst))) { sr1 = Low16bits(CURRENT_LATCHES.IR >> 9) & 0x0007; }
         alu_out = Low16bits(CURRENT_LATCHES.REGS[sr1]);
