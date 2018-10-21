@@ -615,7 +615,7 @@ void eval_micro_sequencer() {
  * If fourth, we need to latch Ready bit at the end of
  * cycle to prepare microsequencer for the fifth cycle.
  **************************************************************/
-int memory, cycle_count, w_e[2];    // Memory Variables
+int memory, mem_cycles, w_e[2]; // Memory Variables
 void cycle_memory() {
     
     /* Get Current Microinstruction */
@@ -631,10 +631,10 @@ void cycle_memory() {
         w_e[1] = write && (mar ^ d_size);
         
         /* Update Cycle Count */
-        if (cycle_count < 4) { cycle_count++; }
-        if (cycle_count == 4) {
+        if (mem_cycles < 4) { mem_cycles++; }
+        if (mem_cycles == 4) {
             NEXT_LATCHES.READY = 1;
-            cycle_count++;
+            mem_cycles++;
         }
         
         /* Memory Ready */
@@ -647,11 +647,11 @@ void cycle_memory() {
                                    MEMORY[CURRENT_LATCHES.MAR / 2][1] * 256);
             }
             NEXT_LATCHES.READY = 0;
-            cycle_count = 0;
+            mem_cycles = 0;
         }
         
     } else {    /* Reset */
-        cycle_count = 0;
+        mem_cycles = 0;
         w_e[0] = 0;
         w_e[1] = 0;
     }
@@ -668,7 +668,7 @@ void cycle_memory() {
  *         Gate_SHF,
  *         Gate_MDR.
  **************************************************************/
-int pc_out, addr_sum, marmux_out, mdr_out, alu_out, shf_out;    // Bus variables
+int pc_out, marmux_out, mdr_out, alu_out, shf_out, addr_sum;    // Bus variables
 void eval_bus_drivers() {
     
     /* Get Current Microinstruction */
