@@ -555,8 +555,9 @@ int main(int argc, char *argv[]) {
     
 }
 
-/***************************************************************/
-/* Do not modify the above code.
+
+/***************************************************************
+ Do not modify the above code.
  You are allowed to use the following global variables in your
  code. These are defined above.
  
@@ -571,8 +572,8 @@ int main(int argc, char *argv[]) {
  You may use the functions to get at the control bits defined
  above.
  
- Begin your code here                          */
-/***************************************************************/
+ Begin your code here
+***************************************************************/
 
 
 void eval_micro_sequencer() {
@@ -581,6 +582,31 @@ void eval_micro_sequencer() {
      * Evaluate the address of the next state according to the
      * micro sequencer logic. Latch the next microinstruction.
      */
+    
+    /* Get Current Microinstruction */
+    int* curr_inst = CURRENT_LATCHES.MICROINSTRUCTION;
+    
+    /* Get Instruction Register Decode */
+    if (GetIRD(curr_inst) == 1) {
+        int next_state = (CURRENT_LATCHES.IR >> 12) & 0x000F;   // Get next state
+        int* next_inst = CONTROL_STORE[next_state];             // Update pointer to control store
+        for (int i = 0; i < CONTROL_STORE_BITS; i++)
+            NEXT_LATCHES.MICROINSTRUCTION[i] = next_inst[i];    // Update all control store bits
+        NEXT_LATCHES.STATE_NUMBER = next_state;                 // Update next state number
+    }
+    else {  /* Not IRD */
+        int j_bits = Low16bits(GetJ(curr_inst));
+        CURRENT_LATCHES.STATE_NUMBER = j_bits;                  // Update state number
+        int cond = Low16bits(GetCOND(curr_inst));
+        int ready  = Low16bits((CURRENT_LATCHES.READY && (cond == 1)) << 1);
+        int br = Low16bits((CURRENT_LATCHES.BEN && (cond == 2)) << 2);
+        int addr_m  = Low16bits((CURRENT_LATCHES.IR & 0x0800) && (cond == 3));
+        int next_state = Low16bits(j_bits | br | ready | addr_m);
+        int* next_inst = CONTROL_STORE[next_state];             // Pointer to next microinstruction
+        for(int i = 0; i < CONTROL_STORE_BITS; i++)
+            NEXT_LATCHES.MICROINSTRUCTION[i] = next_inst[i];    // Update all control store bits
+        NEXT_LATCHES.STATE_NUMBER = next_state;                 // Update next state number
+    }
     
 }
 
