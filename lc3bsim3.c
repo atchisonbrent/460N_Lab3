@@ -610,6 +610,9 @@ void eval_micro_sequencer() {
     
 }
 
+int cycle_count;
+int w_e[2];
+int memory;
 
 void cycle_memory() {
     
@@ -619,6 +622,44 @@ void cycle_memory() {
      * If fourth, we need to latch Ready bit at the end of
      * cycle to prepare microsequencer for the fifth cycle.
      */
+    
+    /* Get Current Microinstruction */
+    int* curr_inst = CURRENT_LATCHES.MICROINSTRUCTION;
+    
+    /* Get Memory Enable */
+    if (GetMIO_EN(curr_inst) == 1) {
+        int mar = CURRENT_LATCHES.MAR & 0x0001;
+        int d_size = GetDATA_SIZE(curr_inst);
+        int write = GetR_W(curr_inst);
+        w_e[0] = (!mar) && write;
+        w_e[1] = write && (mar ^ d_size);
+        
+        /* Update Cycle Count */
+        if (cycle_count < 4) cycle_count++;
+        if (cycle_count == 4) {
+            NEXT_LATCHES.READY = 1;
+            cycle_count++;
+        }
+        
+        /* Memory Ready */
+        if(CURRENT_LATCHES.READY == 1) {
+            if(write) {   /* Write */
+                if(w_e[0]) MEMORY[CURRENT_LATCHES.MAR >> 1][0] = Low16bits(CURRENT_LATCHES.MDR & 0x00FF);
+                if(w_e[1]) MEMORY[CURRENT_LATCHES.MAR >> 1][1] = Low16bits((CURRENT_LATCHES.MDR & 0xFF00) >> 8);
+            }
+            else {      /* Read */
+                memory = Low16bits(MEMORY[CURRENT_LATCHES.MAR / 2][0] +
+                                   MEMORY[CURRENT_LATCHES.MAR / 2][1] * 256);
+            }
+            NEXT_LATCHES.READY = 0;
+            cycle_count = 0;
+        }
+    }
+    else {  /* Reset */
+        cycle_count = 0;
+        w_e[0] = 0;
+        w_e[1] = 0;
+    }
     
 }
 
